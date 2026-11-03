@@ -1,0 +1,11 @@
+{
+  "timezone": "Europe/Belgrade",
+  "daily_target": 20000,
+  "start_hour": 8,
+  "end_hour": 22,
+  "sessions": 5,
+  "baseline_by_date": {},
+  "late_grace_seconds": 120,
+  "recording_method": "manual_entry",
+  "synthetic": true
+}

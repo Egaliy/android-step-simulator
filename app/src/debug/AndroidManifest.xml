@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Only adb shell/system callers with DUMP may submit scenarios. -->
+        <activity android:name=".CommandActivity" android:exported="true" android:permission="android.permission.DUMP" android:launchMode="singleTop" android:configChanges="orientation|screenSize|uiMode" />
+    </application>
+</manifest>

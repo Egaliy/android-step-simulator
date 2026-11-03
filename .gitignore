@@ -1,0 +1,18 @@
+# Local tools, accounts, device disks and health data
+work/
+verification/
+reports/
+*.app/
+*.apk
+*.aab
+*.keystore
+*.jks
+.env
+.env.*
+local.properties
+.gradle/
+.kotlin/
+**/build/
+**/__pycache__/
+.DS_Store
+scheduler/today-plan.json
