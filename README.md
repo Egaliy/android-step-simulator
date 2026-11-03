@@ -1,81 +1,171 @@
 # Android Step Simulator
 
-Лабораторный генератор синтетических записей шагов для Android Health Connect. Kotlin-приложение записывает `StepsRecord`, Python управляет сценариями через ADB, небольшое приложение macOS показывает управление в строке меню.
+Generate synthetic step records in Android Health Connect and manage test sessions from the macOS menu bar.
 
-Записи сохраняют происхождение `lab.steps` и метод ручного ввода. Датчики движения не эмулируются. Репозиторий предназначен для тестирования записи, чтения и синхронизации данных; приём этих записей сторонним приложением не гарантируется.
+A Kotlin app handles Health Connect permissions, writes `StepsRecord` entries, and reads them back for verification. A Python controller schedules records through ADB. A native AppKit menu provides session controls and progress tracking.
 
-## Требования
+## Features
 
-- macOS с Command Line Tools (`xcode-select --install`) для меню;
-- Python 3.9+, Java 17, Android SDK с platform-tools и emulator;
-- Android 14+ AVD **StepLabPlay**, желательно с Google Play, созданный в Android Studio;
-- SDK Platform и Build Tools, требуемые Gradle-проектом.
+- **Custom sessions** — choose a step count and duration, such as 8,000 steps over 80 minutes.
+- **Daily schedules** — distribute a daily target across sessions with varied lengths, changing cadence, and short pauses.
+- **Verified writes** — read each record back and check its count, interval, and source.
+- **Retry protection** — reuse the original record identifier when retrying an interrupted operation.
+- **Menu bar controls** — start or stop a session, view recorded progress, or shut down Android to free memory.
+- **Headless Android** — start the emulator without opening its window.
 
-SDK по умолчанию: `~/Library/Android/sdk`; для другого пути задайте `ANDROID_HOME` перед сборкой меню. Храните проект локально, вне выгрузки файлов iCloud.
+Records retain the `lab.steps` source and manual-entry metadata. This tool tests data storage and integration behavior; it does not emulate motion sensors. Acceptance and display of synthetic records depend on the receiving application.
 
-## Android
+## How it works
 
-1. Откройте проект в Android Studio, создайте и запустите AVD `StepLabPlay`.
-2. Соберите и установите debug-приложение:
-
-```sh
-./gradlew assembleDebug
-"$HOME/Library/Android/sdk/platform-tools/adb" install -r app/build/outputs/apk/debug/app-debug.apk
-"$HOME/Library/Android/sdk/platform-tools/adb" shell am start -n lab.steps/.MainActivity
+```text
+macOS menu / Python scenario
+            │ ADB
+            ▼
+     Kotlin Android app
+            │ write + read back
+            ▼
+       Health Connect
+            │ optional integration
+            ▼
+     Compatible fitness app
 ```
 
-3. В приложении предоставьте доступ к чтению и записи шагов Health Connect.
-4. При необходимости самостоятельно установите приложение-получатель, войдите в свой аккаунт и настройте его разрешения. Аккаунты и Android-образы в репозиторий не входят.
+## Requirements
 
-## Меню macOS
+| Component | Requirement |
+| --- | --- |
+| Host | macOS; Command Line Tools for building the menu app |
+| Python | 3.9 or newer |
+| Java | JDK 17 |
+| Android SDK | Platform 36, required Build Tools, Platform Tools, and Emulator |
+| Virtual device | Android 14 or newer, named `StepLabPlay` |
+
+Create the virtual device in Android Studio. A Google Play image is useful when testing integrations with apps distributed through Google Play.
+
+The default SDK location is `~/Library/Android/sdk`. For a different location, set `ANDROID_HOME` before building the menu app. Keep the checkout locally available; cloud file offloading can interrupt emulator startup.
+
+## Quick start
+
+### 1. Install the Android app
+
+Open the project in Android Studio and start the `StepLabPlay` virtual device. Then build and install the debug app:
+
+```sh
+export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+
+./gradlew assembleDebug
+"$ANDROID_HOME/platform-tools/adb" install -r app/build/outputs/apk/debug/app-debug.apk
+"$ANDROID_HOME/platform-tools/adb" shell am start -n lab.steps/.MainActivity
+```
+
+In Step Simulator, grant permission to read and write steps in Health Connect. Keep only one emulator connected during setup.
+
+To test another application, install it separately, sign in, and configure its Health Connect integration. Account credentials, emulator images, and device data are not included in this repository.
+
+### 2. Build the macOS menu app
+
+Install Command Line Tools if needed:
+
+```sh
+xcode-select --install
+```
+
+Build and open the menu app:
 
 ```sh
 python3 scripts/setup_menu.py
 open "work/menu-build.nosync/Step Menu.app"
 ```
 
-В строке меню появится значок человека. Задайте количество шагов и длительность, например **8000 / 80 минут**, и нажмите «Начать сессию». Новый запуск заменяет оставшуюся часть сегодняшнего плана, сохраняя уже подтверждённые записи. Шкала показывает записанные шаги сессии; рядом указаны начало, конец и прошедшие минуты. Общая сумма в строке меню относится только к записям этого инструмента.
+Click the walking-person icon in the menu bar, enter the step count and duration, and start a session. The current application UI uses Russian labels; the controls are listed below for reference.
 
-«Остановить» завершает текущую операцию и останавливает генератор. «Выключить Android и освободить память» также завершает AVD. Закрытие меню само по себе не останавливает генерацию. Android запускается без окна, если ни один эмулятор ещё не работает. Уже открытый AVD используется как есть. Физические устройства через меню не выбираются.
+| Control | Behavior |
+| --- | --- |
+| Start session | Replace the rest of today's plan with a new session, preserving confirmed records |
+| Stop | Finish any write already in progress, then stop generation |
+| Shut down Android | Stop generation and terminate the emulator |
+| Close menu | Close the menu app while leaving generation running |
 
-## Python-сценарии
+The progress bar shows confirmed records for the current session. The timeline displays its start, end, and elapsed minutes. The count in the menu bar covers records tracked by this tool, not every source in the connected account.
+
+If no emulator is running, starting a session launches Android without a window. An existing `StepLabPlay` emulator is reused as-is. The menu controller does not select physical phones.
+
+### 3. Run a scenario from Python
+
+Preview a scenario without writing data:
 
 ```sh
 python3 scripts/simulate.py --dry-run --steps 100 500 1000 5000
+```
+
+Write and verify a 100-step record:
+
+```sh
 python3 scripts/simulate.py --steps 100 --minutes 2 --output reports/test.json
 ```
 
-`simulate.py` записывает сценарии и проверяет отдельные записи чтением по ID. Для повторной отправки с тем же содержимым используйте одинаковые `--run-id` и `--end`. Отчёты содержат временные интервалы и ID записей: не публикуйте их без проверки.
+For a retry with identical content, reuse both `--run-id` and `--end`. Reports contain record identifiers and time intervals; review them before sharing.
 
-Настройки ежедневного генератора находятся в `scheduler/config.json`. При подготовке меню шаблон копируется в `work/daily-steps.nosync/config.json`, только если рабочей копии ещё нет. Дневной план сохраняется и не перегенерируется при перезапуске. По умолчанию: 20000 шагов, пять прогулок, 08:00–22:00 Europe/Belgrade. После окончания ручной сессии оставшийся старый план этого дня не возобновляется; работающий процесс может создать обычный план следующего дня. Для прекращения работы нажмите «Остановить».
+## Scheduling and state
 
-## Ограничения прототипа
+The daily configuration template is `scheduler/config.json`. Menu setup copies it to `work/daily-steps.nosync/config.json` only when no working configuration exists.
 
-- Это локальный инструмент; Mac должен бодрствовать. Хостинг не входит в проект.
-- Записи отправляются минутными порциями. Облачная синхронизация может задерживаться.
-- Пропущенные более чем на две минуты интервалы не догоняются. Реальный итог может оказаться ниже цели.
-- Незавершённая запись повторяется с тем же идентификатором; это защищает от дублей.
-- Режим без окна не устраняет потребление памяти Android: выделяется 2560 МБ гостевой RAM плюс расходы эмулятора.
-- Меню рассчитано на локальный путь проекта; после перемещения проекта запустите `setup_menu.py` снова.
-- Запуск при входе в macOS и автоматизация Codex не устанавливаются.
-- UI меню собран и запущен на macOS; полная автоматизированная проверка всех его кнопок отсутствует.
+Default settings:
 
-## Проверка
+| Setting | Default |
+| --- | --- |
+| Daily target | 20,000 steps |
+| Sessions | 5 |
+| Scheduling window | 08:00–22:00 |
+| Time zone | Europe/Belgrade |
+| Record method | Manual entry |
+
+Each day's plan is persisted and reused after a restart. Editing the template does not change an existing working configuration or saved plan.
+
+A custom session replaces the remaining schedule for that day. The previous schedule does not resume after the session ends. If the worker remains running, it can generate the regular daily plan on the following day. Use **Stop** to end generation.
+
+Runtime files, pending-write journals, reports, built apps, and device data are excluded from version control.
+
+## Operational limits
+
+- The Mac must remain awake. This is a local tool, not a hosted service.
+- Records are submitted in minute-sized batches. Downstream synchronization may lag behind Health Connect.
+- Intervals missed by more than two minutes are skipped rather than backfilled. The recorded total can therefore be lower than the target.
+- A pending write is retried with its original identifier to avoid creating a duplicate.
+- Running without a window still consumes Android resources: the emulator is configured with 2,560 MB of guest RAM, plus host overhead.
+- The menu app is built for the checkout's local path. Run `setup_menu.py` again after moving the project.
+- Login-item registration and Codex automations are not installed by this repository.
+
+## Development and verification
+
+Run the Python checks:
 
 ```sh
 python3 -m unittest discover -s scripts -v
+```
+
+Build and lint the Android app:
+
+```sh
 ./gradlew assembleDebug lintDebug
 ```
 
-Тесты Python покрывают суточный бюджет, интервалы, смену часового пояса, паузы, сохранение состояния, выбор эмулятора и расчёт ручных сессий. Они не заменяют проверку на Android и не доказывают получение данных сторонним сервисом.
+The Python suite covers daily budgets, interval boundaries, daylight-saving transitions, pauses, persisted state, emulator selection, and custom-session calculations. The menu app has been built and launched on macOS; complete automated UI coverage is not included. Local checks do not verify delivery to a third-party fitness service.
 
-## Структура
+## Project structure
 
-- `app/` — Kotlin-приложение; ADB-команда доступна только в debug-сборке.
-- `scripts/simulate.py` — запись сценария и чтение результата.
-- `scripts/daily_steps.py` — планировщик и журнал повторов.
-- `scripts/menu_control.py` — управление сессиями и эмулятором.
-- `menu/StepMenu.swift` — приложение строки меню AppKit.
-- `scripts/setup_menu.py` — локальная сборка меню и подготовка runtime.
+| Path | Purpose |
+| --- | --- |
+| `app/` | Kotlin app, permissions, and Health Connect read/write operations |
+| `app/src/debug/` | Debug-only ADB command entry point |
+| `scripts/simulate.py` | Scenario submission and record verification |
+| `scripts/daily_steps.py` | Daily planning, worker process, and retry journal |
+| `scripts/menu_control.py` | Session and emulator management |
+| `scripts/setup_menu.py` | Local menu app build and runtime setup |
+| `menu/StepMenu.swift` | Native AppKit menu interface |
+| `scheduler/config.json` | Default daily configuration |
 
-[Документация Health Connect](https://developer.android.com/health-and-fitness/health-connect)
+## References
+
+- [Health Connect documentation](https://developer.android.com/health-and-fitness/health-connect)
+- [Health Connect client releases](https://developer.android.com/jetpack/androidx/releases/health-connect)
