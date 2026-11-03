@@ -25,7 +25,7 @@ class CommandActivity : MainActivity() {
                 Instant.parse(requireNotNull(intent.getStringExtra("end")))
             ))
         } catch (e: Exception) {
-            Toast.makeText(this, "Ошибка сценария: ${e.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Scenario error: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 }

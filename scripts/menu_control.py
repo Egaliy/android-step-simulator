@@ -18,14 +18,14 @@ def stop():
     for _ in range(120):
         if not d.running(R): return
         time.sleep(.5)
-    raise RuntimeError('Текущая запись ещё завершается. Повторите остановку позже.')
+    raise RuntimeError('A write is still finishing. Try stopping again shortly.')
 
 def devices():
     return [x.split()[0] for x in d.simulate.run([ADB,'devices']).stdout.splitlines()[1:] if len(x.split())==2 and x.split()[0].startswith('emulator-')]
 
 def ready():
     if not devices():
-        event('starting','Запускается Android без окна…')
+        event('starting','Starting Android without a window…')
         env=dict(os.environ,ANDROID_HOME=str(SDK))
         with (R/'headless-emulator.log').open('a') as log:
             subprocess.Popen([str(SDK/'emulator/emulator'),'-avd','StepLabPlay','-no-window','-no-snapshot','-no-audio','-memory','2560','-cores','4','-feature','-Vulkan','-no-boot-anim'],env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
@@ -35,18 +35,18 @@ def ready():
             if d.simulate.run([ADB,'-s',serial,'shell','getprop','sys.boot_completed']).stdout.strip()=='1':return serial
         except Exception: pass
         time.sleep(2)
-    raise RuntimeError('Android не загрузился за 3 минуты. Проверьте headless-emulator.log.')
+    raise RuntimeError('Android did not boot within 3 minutes. Check headless-emulator.log.')
 
 def session_plan(old, state, steps, minutes, now, seed):
     if not 1 <= steps <= 50000 or not 1 <= minutes <= 720:
-        raise ValueError('Шаги: 1–50000; минуты: 1–720.')
+        raise ValueError('Steps: 1–50000; minutes: 1–720.')
     if steps > minutes*180:
-        raise ValueError('Слишком короткий интервал: максимум 180 шагов в минуту.')
+        raise ValueError('Duration is too short: maximum 180 steps per minute.')
     start=now+dt.timedelta(seconds=10)
     end=start+dt.timedelta(minutes=minutes)
     zone=ZoneInfo(old['timezone'])
     if start.astimezone(zone).date()!=end.astimezone(zone).date():
-        raise ValueError('Сессия должна закончиться до полуночи по Белграду.')
+        raise ValueError('The session must finish before midnight in Europe/Belgrade.')
     rng=random.Random(seed)
     n=minutes
     weights=[rng.uniform(.85,1.15) for _ in range(n)]
@@ -67,12 +67,12 @@ def main():
     R.mkdir(parents=True,exist_ok=True)
     with (R/'control.lock').open('a') as lock:
         try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        except BlockingIOError:raise RuntimeError('Другая команда ещё выполняется.')
-        event('busy','Подготовка…');stop()
+        except BlockingIOError:raise RuntimeError('Another command is still running.')
+        event('busy','Preparing…');stop()
         if args.action!='start':
             if args.action=='shutdown' and devices():
                 serial=d.emulator_ready(ADB);d.simulate.run([ADB,'-s',serial,'emu','kill'])
-            event('stopped','Сессия остановлена.' if args.action=='stop' else 'Android выключен. Память освобождается.');return
+            event('stopped','Session stopped.' if args.action=='stop' else 'Android shut down. Memory is being released.');return
         c=d.load(R/'config.json');day=dt.datetime.now(ZoneInfo(c['timezone'])).date().isoformat();pp=R/f'{day}-plan.json';sp=R/f'{day}-state.json'
         old=d.load(pp) or d.build_plan(dt.date.fromisoformat(day),c,uuid.uuid4().hex)
         state=d.load(sp,dict(completed={},skipped={}))
@@ -80,7 +80,7 @@ def main():
         ready()
         pending=d.load(R/'pending.json')
         if pending:
-            event('busy','Проверка незавершённой записи…')
+            event('busy','Checking the pending record…')
             result=d.write_batch(ADB,pending['batch'])
             osp=R/(pending['date']+'-state.json');os_=d.load(osp,dict(completed={},skipped={}))
             os_['completed'][pending['batch']['scenario_id']]=result;d.save(osp,os_);(R/'pending.json').unlink();state=d.load(sp,state)
@@ -88,7 +88,7 @@ def main():
         d.save(R/f'{day}-before-menu-{int(time.time())}.json',old)
         d.save(sp,state);d.save(pp,plan)
         subprocess.run([sys.executable,str(R/'code/daily_steps.py'),'start','--config',str(R/'config.json'),'--runtime',str(R),'--adb',ADB],check=True)
-        event('running','Сессия запущена. Запись раз в минуту.')
+        event('running','Session started. Writing once per minute.')
 
 if __name__=='__main__':
     try:main()

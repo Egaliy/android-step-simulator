@@ -12,11 +12,11 @@ class App: NSObject, NSApplicationDelegate {
     let pop = NSPopover()
     let steps = NSTextField(string:"8000")
     let minutes = NSTextField(string:"80")
-    let state = NSTextField(wrappingLabelWithString:"Готово к запуску")
-    let count = NSTextField(labelWithString:"Записано: —")
-    let timeline = NSTextField(labelWithString:"Сессия ещё не началась")
+    let state = NSTextField(wrappingLabelWithString:"Ready to start")
+    let count = NSTextField(labelWithString:"Recorded: —")
+    let timeline = NSTextField(labelWithString:"No session started")
     let progress = NSProgressIndicator()
-    let detail = NSTextField(wrappingLabelWithString:"Записи поступают раз в минуту. Синхронизация со спортзалом может задерживаться.")
+    let detail = NSTextField(wrappingLabelWithString:"Records are written once per minute. Fitness app sync may take longer.")
     var timer: Timer?
     var task: Process?
     var startButton: NSButton!
@@ -37,20 +37,20 @@ class App: NSObject, NSApplicationDelegate {
         stack.translatesAutoresizingMaskIntoConstraints=false;vc.view.addSubview(stack)
         NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo:vc.view.leadingAnchor,constant:20),stack.trailingAnchor.constraint(equalTo:vc.view.trailingAnchor,constant:-20),stack.topAnchor.constraint(equalTo:vc.view.topAnchor,constant:20)])
         stack.addArrangedSubview(label("Step Simulator",20))
-        let sub=label("Тестовая сессия · ручной ввод",11);sub.textColor = .secondaryLabelColor;stack.addArrangedSubview(sub)
-        let fields=NSStackView(views:[label("Шагов"),steps,label("Минут"),minutes]);fields.spacing=8
+        let sub=label("Test session · manual entry",11);sub.textColor = .secondaryLabelColor;stack.addArrangedSubview(sub)
+        let fields=NSStackView(views:[label("Steps"),steps,label("Minutes"),minutes]);fields.spacing=8
         steps.widthAnchor.constraint(equalToConstant:80).isActive=true;minutes.widthAnchor.constraint(equalToConstant:55).isActive=true
         stack.addArrangedSubview(fields)
-        startButton=NSButton(title:"Начать сессию",target:self,action:#selector(start));startButton.bezelStyle = .rounded
-        stopButton=NSButton(title:"Остановить",target:self,action:#selector(stop));stopButton.bezelStyle = .rounded
+        startButton=NSButton(title:"Start session",target:self,action:#selector(start));startButton.bezelStyle = .rounded
+        stopButton=NSButton(title:"Stop",target:self,action:#selector(stop));stopButton.bezelStyle = .rounded
         stack.addArrangedSubview(NSStackView(views:[startButton,stopButton]))
         state.font = .systemFont(ofSize:12);state.widthAnchor.constraint(equalToConstant:320).isActive=true;stack.addArrangedSubview(state)
         count.font = .monospacedDigitSystemFont(ofSize:18,weight:.medium);stack.addArrangedSubview(count)
         progress.isIndeterminate=false;progress.minValue=0;progress.maxValue=1;progress.style = .bar;progress.widthAnchor.constraint(equalToConstant:320).isActive=true;stack.addArrangedSubview(progress)
         timeline.font = .monospacedDigitSystemFont(ofSize:11,weight:.regular);stack.addArrangedSubview(timeline)
         detail.font = .systemFont(ofSize:11);detail.textColor = .secondaryLabelColor;detail.widthAnchor.constraint(equalToConstant:320).isActive=true;stack.addArrangedSubview(detail)
-        offButton=NSButton(title:"Выключить Android и освободить память",target:self,action:#selector(shutdown));offButton.bezelStyle = .rounded;stack.addArrangedSubview(offButton)
-        let quit=NSButton(title:"Закрыть меню (сессия продолжится)",target:self,action:#selector(quitApp));quit.isBordered=false;quit.font = .systemFont(ofSize:11);stack.addArrangedSubview(quit)
+        offButton=NSButton(title:"Shut down Android to free memory",target:self,action:#selector(shutdown));offButton.bezelStyle = .rounded;stack.addArrangedSubview(offButton)
+        let quit=NSButton(title:"Quit menu (session keeps running)",target:self,action:#selector(quitApp));quit.isBordered=false;quit.font = .systemFont(ofSize:11);stack.addArrangedSubview(quit)
         pop.contentViewController=vc;pop.contentSize=vc.view.frame.size;pop.behavior = .transient
         timer=Timer.scheduledTimer(withTimeInterval:1,repeats:true){[weak self] _ in self?.refresh()};refresh()
         if CommandLine.arguments.contains("--show") {toggle()}
@@ -74,10 +74,10 @@ class App: NSObject, NSApplicationDelegate {
         if let out=FileHandle(forWritingAtPath:log){out.seekToEndOfFile();p.standardOutput=out;p.standardError=out}
         p.standardInput=FileHandle.nullDevice
         p.terminationHandler={_ in DispatchQueue.main.async {self.refresh()}}
-        do {try p.run();task=p;state.stringValue="Подготовка…";refresh()}catch{state.stringValue=error.localizedDescription}
+        do {try p.run();task=p;state.stringValue="Preparing…";refresh()}catch{state.stringValue=error.localizedDescription}
     }
     @objc func start(){
-        guard let s=Int(steps.stringValue),let m=Int(minutes.stringValue),s>0,s<=50000,m>0,m<=720,s<=m*180 else {state.stringValue="Проверьте шаги и минуты (не более 180 шагов/мин).";return}
+        guard let s=Int(steps.stringValue),let m=Int(minutes.stringValue),s>0,s<=50000,m>0,m<=720,s<=m*180 else {state.stringValue="Check steps and duration (up to 180 steps/min).";return}
         run("start")
     }
     @objc func stop(){run("stop")}
@@ -91,21 +91,21 @@ class App: NSObject, NSApplicationDelegate {
         let alive=pid>0 && kill(pid,0)==0 && status["state"] as? String != "stopped"
         let total=status["confirmed_health_connect"] as? Int ?? 0
         item.button?.title=" \(total)"
-        if busy {state.stringValue=control["message"] as? String ?? "Подготовка…"}
-        else if control["state"] as? String == "error" {state.stringValue=control["message"] as? String ?? "Ошибка"}
-        else if alive {state.stringValue=status["last_error"] as? String ?? "Работает в фоне · Health Connect"}
-        else {state.stringValue="Остановлено · можно начать новую сессию"}
+        if busy {state.stringValue=control["message"] as? String ?? "Preparing…"}
+        else if control["state"] as? String == "error" {state.stringValue=control["message"] as? String ?? "Error"}
+        else if alive {state.stringValue=status["last_error"] as? String ?? "Running in background · Health Connect"}
+        else {state.stringValue="Stopped · ready for a new session"}
         let day=status["date"] as? String ?? ""
         let plan=json(runtime+"/\(day)-plan.json")
         if let session=plan["session"] as? [String:Any],let a=session["start"] as? String,let z=session["end"] as? String,let begin=iso.date(from:a),let end=iso.date(from:z){
             let goal=session["steps"] as? Int ?? 0,base=session["baseline"] as? Int ?? 0
-            let done=max(0,total-base);count.stringValue="\(done) / \(goal) шагов записано"
+            let done=max(0,total-base);count.stringValue="\(done) / \(goal) steps recorded"
             progress.doubleValue=goal>0 ? min(1,Double(done)/Double(goal)):0
             let f=DateFormatter();f.timeZone=TimeZone(identifier:"Europe/Belgrade");f.dateFormat="HH:mm"
             let elapsed=max(0,min(Int(end.timeIntervalSince(begin)/60),Int(Date().timeIntervalSince(begin)/60)))
-            timeline.stringValue="\(f.string(from:begin)) → \(f.string(from:end)) · прошло \(elapsed) мин"
-            if alive && Date()>end && status["pending"] is NSNull {state.stringValue=done>=goal ? "Сессия завершена" : "Сессия завершена с пропусками"}
-        }else{count.stringValue="Всего записано: \(total)";progress.doubleValue=0;timeline.stringValue="Сессия ещё не началась"}
+            timeline.stringValue="\(f.string(from:begin)) → \(f.string(from:end)) · elapsed \(elapsed) min"
+            if alive && Date()>end && status["pending"] is NSNull {state.stringValue=done>=goal ? "Session complete" : "Session finished with skipped intervals"}
+        }else{count.stringValue="Total recorded: \(total)";progress.doubleValue=0;timeline.stringValue="No session started"}
     }
 }
 let app=NSApplication.shared

@@ -77,7 +77,7 @@ python3 scripts/setup_menu.py
 open "work/menu-build.nosync/Step Menu.app"
 ```
 
-Click the walking-person icon in the menu bar, enter the step count and duration, and start a session. The current application UI uses Russian labels; the controls are listed below for reference.
+Click the walking-person icon in the menu bar, enter the step count and duration, and start a session. The application interface and status messages are in English.
 
 | Control | Behavior |
 | --- | --- |

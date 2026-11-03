@@ -41,15 +41,15 @@ def load(path, default=None):
 def validate(c):
     ZoneInfo(c['timezone'])
     if not (0 <= c['start_hour'] < c['end_hour'] <= 24):
-        raise ValueError('Часы: 0 <= начало < конец <= 24')
+        raise ValueError('Hours: 0 <= start < end <= 24')
     if not 1 <= c['daily_target'] <= 50000 or not 1 <= c['sessions'] <= 12:
-        raise ValueError('Цель 1–50000; сессии 1–12')
+        raise ValueError('Target: 1–50000; sessions: 1–12')
     if not c.get('synthetic') or c.get('recording_method') != 'manual_entry':
-        raise ValueError('Поддерживается только явно синтетический ручной ввод')
+        raise ValueError('Only explicitly synthetic manual-entry records are supported')
     if not 5 <= c['late_grace_seconds'] <= 300:
-        raise ValueError('Допуск опоздания: 5–300 секунд')
+        raise ValueError('Late tolerance: 5–300 seconds')
     if any(not isinstance(v, int) or v < 0 for v in c['baseline_by_date'].values()):
-        raise ValueError('Начальный счётчик должен быть неотрицательным целым')
+        raise ValueError('The baseline must be a nonnegative integer')
 
 
 def build_plan(day, c, seed):
@@ -87,7 +87,7 @@ def build_plan(day, c, seed):
                 slots.extend([0] * rng.randint(1, 3))
                 active_minutes = 0
         if len(slots) > right - left:
-            raise ValueError('Недостаточно времени для заданного количества шагов')
+            raise ValueError('Not enough time for the requested step count')
         offset = rng.randint(left, right - len(slots))
         for i, count in enumerate(slots):
             if count == 0:
@@ -154,11 +154,11 @@ def emulator_ready(adb):
                and line.split()[0].startswith('emulator-')]
     # Never select a physical phone or an ambiguous set of emulators.
     if len(devices) != 1:
-        raise RuntimeError('Нужен ровно один работающий эмулятор StepLabPlay')
+        raise RuntimeError('Exactly one running StepLabPlay emulator is required')
     serial = devices[0]
     name = simulate.run([adb, '-s', serial, 'emu', 'avd', 'name']).stdout.splitlines()[0].strip()
     if name != 'StepLabPlay':
-        raise RuntimeError(f'Ожидался StepLabPlay, найден {name}')
+        raise RuntimeError(f'Expected StepLabPlay, found {name}')
     return serial
 
 
@@ -184,7 +184,7 @@ def daemon(config_path, runtime, adb):
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
-        print('Уже запущено'); return
+        print('Already running'); return
     stop = False
     def halt(*_):
         nonlocal stop
@@ -270,7 +270,7 @@ def main():
         print(json.dumps(plan, indent=2, ensure_ascii=False))
     elif args.action == 'start':
         if running(args.runtime):
-            print('Уже запущено'); return
+            print('Already running'); return
         (args.runtime / 'stop.request').unlink(missing_ok=True)
         with (args.runtime / 'worker.log').open('a') as log:
             subprocess.Popen([sys.executable, str(Path(__file__).resolve()), '_run',
@@ -279,12 +279,12 @@ def main():
                              start_new_session=True, close_fds=True)
         for _ in range(50):
             if running(args.runtime):
-                print('Ежедневный синтетический тест запущен.'); return
+                print('Daily synthetic test started.'); return
             time.sleep(0.1)
-        raise RuntimeError('Не удалось запустить процесс. См. worker.log')
+        raise RuntimeError('Could not start the worker. See worker.log')
     elif args.action == 'stop':
         (args.runtime / 'stop.request').touch()
-        print('Остановка запрошена; текущая запись, если она уже началась, завершится.')
+        print('Stop requested; any write already in progress will finish.')
     else:
         while True:
             status = load(args.runtime / 'status.json', {})
@@ -293,8 +293,8 @@ def main():
                 print(json.dumps(status, indent=2, ensure_ascii=False)); return
             plan = load(args.runtime / f"{status.get('date')}-plan.json")
             local = planned_count(plan, dt.datetime.now(UTC)) if plan else 0
-            print(f"\rПлан сейчас: {local} | Записано HC: {status.get('confirmed_health_connect', 0)}"
-                  f" / {status.get('target', c['daily_target'])} | {status.get('state', 'не запущено')}    ",
+            print(f"\rPlanned now: {local} | Recorded in HC: {status.get('confirmed_health_connect', 0)}"
+                  f" / {status.get('target', c['daily_target'])} | {status.get('state', 'not running')}    ",
                   end='', flush=True)
             time.sleep(1)
 
@@ -304,5 +304,5 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         pass
     except Exception as exc:
-        print(f'Ошибка: {exc}', file=sys.stderr)
+        print(f'Error: {exc}', file=sys.stderr)
         sys.exit(1)

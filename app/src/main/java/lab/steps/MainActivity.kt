@@ -34,8 +34,8 @@ open class MainActivity : ComponentActivity() {
     private val request = registerForActivityResult(
         PermissionController.createRequestPermissionResultContract()
     ) { granted ->
-        status.text = if (granted.containsAll(permissions)) "Доступ разрешён. Можно запускать сценарий."
-        else "Нужны оба разрешения: чтение и запись шагов."
+        status.text = if (granted.containsAll(permissions)) "Access granted. Ready to run a scenario."
+        else "Both permissions are required: read and write steps."
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,13 +48,13 @@ open class MainActivity : ComponentActivity() {
             it.text = value; it.textSize = size; layout.addView(it)
         }
         label("Step Simulator", 28f)
-        label("Лаборатория · синтетические данные\n")
-        label("Количество шагов")
+        label("Lab · synthetic data\n")
+        label("Step count")
         steps = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
             setText("10000")
         }.also(layout::addView)
-        label("Начало и конец (ISO 8601, UTC или смещение)")
+        label("Start and end (ISO 8601, UTC or offset)")
         start = EditText(this).also(layout::addView)
         end = EditText(this).also(layout::addView)
         val finish = Instant.now().minusSeconds(5).truncatedTo(ChronoUnit.SECONDS)
@@ -63,21 +63,21 @@ open class MainActivity : ComponentActivity() {
         fun button(title: String, action: () -> Unit) = Button(this).also {
             it.text = title; it.setOnClickListener { action() }; layout.addView(it)
         }
-        button("Разрешить доступ к шагам") {
+        button("Allow step access") {
             if (available()) request.launch(permissions)
         }
-        generate = button("Generate · записать и проверить") {
+        generate = button("Generate · write and verify") {
             try {
                 submit(Scenario(UUID.randomUUID().toString(), steps.text.toString().toLong(),
                     Instant.parse(start.text.toString().trim()), Instant.parse(end.text.toString().trim())))
-            } catch (e: Exception) { status.text = "Ошибка ввода: ${e.message}" }
+            } catch (e: Exception) { status.text = "Input error: ${e.message}" }
         }
-        button("Открыть Health Connect") {
+        button("Open Health Connect") {
             try { startActivity(Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS)) }
-            catch (e: Exception) { status.text = "Не удалось открыть Health Connect: ${e.message}" }
+            catch (e: Exception) { status.text = "Could not open Health Connect: ${e.message}" }
         }
-        button("О данных и разрешениях") { startActivity(Intent(this, PrivacyActivity::class.java)) }
-        status = label("Сначала разрешите чтение и запись шагов.")
+        button("Data and permissions") { startActivity(Intent(this, PrivacyActivity::class.java)) }
+        status = label("First, allow access to read and write steps.")
         status.setTextIsSelectable(true)
         setContentView(ScrollView(this).apply { addView(layout) })
         available()
@@ -86,7 +86,7 @@ open class MainActivity : ComponentActivity() {
     private fun available(): Boolean {
         val code = HealthConnectClient.getSdkStatus(this)
         if (code != HealthConnectClient.SDK_AVAILABLE) {
-            status.text = "Health Connect недоступен (код $code). Используйте Android 14+ и обновите системный модуль."
+            status.text = "Health Connect unavailable (code $code). Use Android 14+ and update the system module."
             return false
         }
         return true
@@ -97,15 +97,15 @@ open class MainActivity : ComponentActivity() {
         scenario.validate()
         busy = true
         generate.isEnabled = false
-        status.text = "Запись и проверка…"
+        status.text = "Writing and verifying…"
         lifecycleScope.launch {
             val result = JSONObject().put("scenario_id", scenario.id).put("expected", scenario.count)
                 .put("start", scenario.start.toString()).put("end", scenario.end.toString())
             try {
-                check(available()) { "Health Connect недоступен" }
+                check(available()) { "Health Connect unavailable" }
                 val client = HealthConnectClient.getOrCreate(this@MainActivity)
                 check(client.permissionController.getGrantedPermissions().containsAll(permissions)) {
-                    "Откройте Step Simulator и разрешите чтение и запись шагов"
+                    "Open Step Simulator and allow access to read and write steps"
                 }
                 val zone = ZoneId.systemDefault().rules
                 val record = StepsRecord(
@@ -135,8 +135,8 @@ open class MainActivity : ComponentActivity() {
                 val dir = File(filesDir, "results").apply { mkdirs() }
                 val tmp = File(dir, "${scenario.id}.tmp")
                 tmp.writeText(result.toString(2))
-                check(tmp.renameTo(File(dir, "${scenario.id}.json"))) { "Не удалось сохранить результат" }
-            } catch (e: Exception) { status.append("\nОшибка сохранения: ${e.message}") }
+                check(tmp.renameTo(File(dir, "${scenario.id}.json"))) { "Could not save the result" }
+            } catch (e: Exception) { status.append("\nSave error: ${e.message}") }
         }
     }
 }
