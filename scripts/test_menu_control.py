@@ -13,6 +13,9 @@ class MenuSessionTest(unittest.TestCase):
   self.assertEqual(p['batches'][0]['scenario_id'],'old')
   new=p['batches'][1:]
   self.assertEqual(len(new),80)
+  self.assertAlmostEqual(sum(b["distance_m"] for b in new),5600)
+  self.assertAlmostEqual(sum(b["active_kcal"] for b in new),320)
+  self.assertNotIn("distance_m",p["batches"][0])
   for a,b in zip(new,new[1:]):self.assertEqual(a['end'],b['start'])
  def test_invalid_or_cross_midnight(self):
   for steps,mins in [(0,80),(8000,0),(8000,1)]:

@@ -14,6 +14,7 @@ import sys
 import time
 from zoneinfo import ZoneInfo
 import simulate
+from activity_profile import enrich
 
 PROJECT = Path(__file__).resolve().parents[1]
 WORK = PROJECT / 'work'
@@ -89,6 +90,7 @@ def build_plan(day, c, seed):
         if len(slots) > right - left:
             raise ValueError('Not enough time for the requested step count')
         offset = rng.randint(left, right - len(slots))
+        first_batch = len(batches)
         for i, count in enumerate(slots):
             if count == 0:
                 continue  # A pause creates no Health Connect record.
@@ -96,6 +98,7 @@ def build_plan(day, c, seed):
             batches.append(dict(scenario_id=f'labday-{day:%Y%m%d}-{offset+i:04d}',
                                 steps=count, start=simulate.iso(begin),
                                 end=simulate.iso(begin + dt.timedelta(minutes=1))))
+        enrich(batches[first_batch:])
     return dict(date=day.isoformat(), timezone=c['timezone'], target=c['daily_target'],
                 baseline=baseline, seed=seed, synthetic=True, batches=batches)
 
@@ -169,6 +172,8 @@ def write_batch(adb, batch):
     result = simulate.execute(adb, serial, batch, 60)
     if result.get('status') != 'PASS' or result.get('actual') != batch['steps']:
         raise RuntimeError(json.dumps(result, ensure_ascii=False))
+    if 'distance_m' in batch and result.get('metrics', {}).get('status') != 'PASS':
+        raise RuntimeError('Activity metrics were not verified. Update the Android app and grant activity permissions.')
     try:
         simulate.run([adb, '-s', serial, 'shell', 'am', 'start', '-n',
                       'com.fitbit.FitbitMobile/com.fitbit.HealthBrandedAlias'])
@@ -242,6 +247,7 @@ def daemon(config_path, runtime, adb):
                 timezone=c['timezone'], target=plan['target'], baseline=plan['baseline'],
                 planned_so_far=planned_count(plan, now), confirmed_health_connect=confirmed(plan, state),
                 skipped_steps=sum(state['skipped'].values()), pending=pending,
+                metrics={key: round(sum(v.get('metrics', {}).get(key, 0) for v in state['completed'].values()), 3) for key in ('distance_m', 'active_kcal', 'elevation_m')},
                 next_interval=future[0] if future else None, last_error=last_error,
                 updated_at=simulate.iso(now)))
             time.sleep(1)

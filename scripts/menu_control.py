@@ -4,6 +4,7 @@ import argparse, datetime as dt, fcntl, json, os, random, subprocess, sys, time,
 from pathlib import Path
 from zoneinfo import ZoneInfo
 import daily_steps as d
+from activity_profile import enrich
 
 ROOT = Path(os.environ.get('STEP_LAB_ROOT', str(Path(__file__).resolve().parents[1])))
 R = ROOT / 'work/daily-steps.nosync'
@@ -59,6 +60,7 @@ def session_plan(old, state, steps, minutes, now, seed):
             a=start+dt.timedelta(seconds=60*minutes*i/n)
             z=start+dt.timedelta(seconds=60*minutes*(i+1)/n)
             batches.append(dict(scenario_id=f'menu-{seed}-{i:03d}',steps=count,start=d.simulate.iso(a),end=d.simulate.iso(z)))
+    enrich(batches[len(past):])
     base=d.confirmed(old,state)
     return dict(date=old['date'],timezone=old['timezone'],target=base+steps,baseline=old['baseline'],seed=seed,synthetic=True,batches=sorted(batches,key=lambda b:b['start']),session=dict(steps=steps,minutes=minutes,baseline=base,start=d.simulate.iso(start),end=d.simulate.iso(end)))
 

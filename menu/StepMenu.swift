@@ -14,9 +14,10 @@ class App: NSObject, NSApplicationDelegate {
     let minutes = NSTextField(string:"80")
     let state = NSTextField(wrappingLabelWithString:"Ready to start")
     let count = NSTextField(labelWithString:"Recorded: —")
+    let metricCount = NSTextField(labelWithString:"Distance — · Active kcal — · Climb —")
     let timeline = NSTextField(labelWithString:"No session started")
     let progress = NSProgressIndicator()
-    let detail = NSTextField(wrappingLabelWithString:"Records are written once per minute. Fitness app sync may take longer.")
+    let detail = NSTextField(wrappingLabelWithString:"Test profile: 0.70 m and 0.04 active kcal per step; 0 m climb. Minute writes; fitness app sync may lag.")
     var timer: Timer?
     var task: Process?
     var startButton: NSButton!
@@ -32,7 +33,7 @@ class App: NSObject, NSApplicationDelegate {
         item.button?.image = NSImage(systemSymbolName:"figure.walk",accessibilityDescription:"Step Simulator")
         item.button?.imagePosition = .imageLeading
         item.button?.target=self;item.button?.action=#selector(toggle)
-        let vc=NSViewController();vc.view=NSView(frame:NSRect(x:0,y:0,width:360,height:480))
+        let vc=NSViewController();vc.view=NSView(frame:NSRect(x:0,y:0,width:360,height:520))
         let stack=NSStackView();stack.orientation = .vertical;stack.alignment = .leading;stack.spacing=12
         stack.translatesAutoresizingMaskIntoConstraints=false;vc.view.addSubview(stack)
         NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo:vc.view.leadingAnchor,constant:20),stack.trailingAnchor.constraint(equalTo:vc.view.trailingAnchor,constant:-20),stack.topAnchor.constraint(equalTo:vc.view.topAnchor,constant:20)])
@@ -46,6 +47,7 @@ class App: NSObject, NSApplicationDelegate {
         stack.addArrangedSubview(NSStackView(views:[startButton,stopButton]))
         state.font = .systemFont(ofSize:12);state.widthAnchor.constraint(equalToConstant:320).isActive=true;stack.addArrangedSubview(state)
         count.font = .monospacedDigitSystemFont(ofSize:18,weight:.medium);stack.addArrangedSubview(count)
+        metricCount.font = .monospacedDigitSystemFont(ofSize:12,weight:.regular);stack.addArrangedSubview(metricCount)
         progress.isIndeterminate=false;progress.minValue=0;progress.maxValue=1;progress.style = .bar;progress.widthAnchor.constraint(equalToConstant:320).isActive=true;stack.addArrangedSubview(progress)
         timeline.font = .monospacedDigitSystemFont(ofSize:11,weight:.regular);stack.addArrangedSubview(timeline)
         detail.font = .systemFont(ofSize:11);detail.textColor = .secondaryLabelColor;detail.widthAnchor.constraint(equalToConstant:320).isActive=true;stack.addArrangedSubview(detail)
@@ -90,6 +92,11 @@ class App: NSObject, NSApplicationDelegate {
         let pid=status["pid"] as? Int32 ?? 0
         let alive=pid>0 && kill(pid,0)==0 && status["state"] as? String != "stopped"
         let total=status["confirmed_health_connect"] as? Int ?? 0
+        let metrics=status["metrics"] as? [String:Any] ?? [:]
+        let km=(metrics["distance_m"] as? Double ?? 0)/1000
+        let kcal=metrics["active_kcal"] as? Double ?? 0
+        let climb=metrics["elevation_m"] as? Double ?? 0
+        metricCount.stringValue=String(format:"Today: %.2f km · %.1f active kcal · %.1f m ↑",km,kcal,climb)
         item.button?.title=" \(total)"
         if busy {state.stringValue=control["message"] as? String ?? "Preparing…"}
         else if control["state"] as? String == "error" {state.stringValue=control["message"] as? String ?? "Error"}

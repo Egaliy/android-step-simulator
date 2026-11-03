@@ -22,7 +22,13 @@ class CommandActivity : MainActivity() {
                 requireNotNull(intent.getStringExtra("scenario_id")),
                 requireNotNull(intent.getStringExtra("steps")).toLong(),
                 Instant.parse(requireNotNull(intent.getStringExtra("start"))),
-                Instant.parse(requireNotNull(intent.getStringExtra("end")))
+                Instant.parse(requireNotNull(intent.getStringExtra("end"))),
+                if (intent.hasExtra("distance_m")) ActivityMetrics(
+                    requireNotNull(intent.getStringExtra("distance_m")).toDouble(),
+                    requireNotNull(intent.getStringExtra("active_kcal")).toDouble(),
+                    requireNotNull(intent.getStringExtra("elevation_m")).toDouble(),
+                    intent.getStringExtra("workout_start")?.let(Instant::parse)
+                ) else null
             ))
         } catch (e: Exception) {
             Toast.makeText(this, "Scenario error: ${e.message}", Toast.LENGTH_LONG).show()

@@ -11,7 +11,7 @@ class PrivacyActivity : Activity() {
             textSize = 18f
             setPadding(32, 64, 32, 32)
             text = "Step Simulator — test data\n\n" +
-                "Step access is required to write synthetic StepsRecord entries and read them back. " +
+                "Step access is required to write synthetic steps, distance, active calories, elevation gain and walking sessions, then read them back. " +
                 "Records use the lab.steps source and manual-entry metadata.\n\n" +
                 "The app does not send data over the network. Test results are stored locally; " +
                 "the debug build supports exporting them to a Mac through ADB.\n\n" +

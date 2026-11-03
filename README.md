@@ -169,3 +169,12 @@ The Python suite covers daily budgets, interval boundaries, daylight-saving tran
 
 - [Health Connect documentation](https://developer.android.com/health-and-fitness/health-connect)
 - [Health Connect client releases](https://developer.android.com/jetpack/androidx/releases/health-connect)
+
+
+## Synthetic walking metrics
+
+New sessions include distance, active energy, elevation gain, and one walking exercise summary on the final batch. The default test profile is **0.70 m and 0.04 active kcal per step, with 0 m elevation gain**: 8,000 steps correspond to 5.6 km and 320 active kcal. These are explicit test inputs, not measurements or personalized calorie estimates. Existing step-only records are not automatically rewritten.
+
+Grant Step Simulator read/write access to steps, distance, active calories, elevation gain, and exercise in Health Connect. The receiving app needs the relevant read permissions too. Each metric has a stable client record ID and is read back to verify its value, interval, and source. The menu displays confirmed metric totals for the day; records created before this feature have no metric values.
+
+Active calories exclude resting metabolism. This tool does not write total daily calories, heart rate, GPS routes, sleep, or cardio scores. Google Health calculates cardio scores separately; importing these test records does not guarantee a score or acceptance by a third-party service. Skipped intervals reduce the delivered totals; an exercise summary describes the requested test interval rather than sensor-verified exercise.

@@ -3,8 +3,9 @@ package lab.steps
 import java.time.Instant
 import java.time.Duration
 
-data class Scenario(val id: String, val count: Long, val start: Instant, val end: Instant) {
+data class Scenario(val id: String, val count: Long, val start: Instant, val end: Instant, val metrics: ActivityMetrics? = null) {
     fun validate() {
+        metrics?.validate(this)
         require(id.matches(Regex("[a-zA-Z0-9_-]{1,80}"))) { "Invalid scenario ID" }
         require(count in 1..1_000_000) { "Steps: 1 to 1,000,000" }
         require(start < end) { "Start must be earlier than end" }

@@ -18,6 +18,8 @@ class DailyPlanTest(unittest.TestCase):
             p = d.build_plan(day,C,str(i))
             self.assertEqual(p['baseline'] + sum(b['steps'] for b in p['batches']),20000)
             self.assertEqual(len({b['scenario_id'] for b in p['batches']}),len(p['batches']))
+            self.assertAlmostEqual(sum(b['active_kcal'] for b in p['batches']), (20000-p['baseline'])*0.04)
+            self.assertAlmostEqual(sum(b['distance_m'] for b in p['batches']), (20000-p['baseline'])*0.7)
             previous = None
             for b in p['batches']:
                 a,z=d.dt_of(b['start']),d.dt_of(b['end'])

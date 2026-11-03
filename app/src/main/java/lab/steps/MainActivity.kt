@@ -8,7 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
-import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.records.*
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CancellationException
@@ -31,11 +31,14 @@ open class MainActivity : ComponentActivity() {
         HealthPermission.getReadPermission(StepsRecord::class),
         HealthPermission.getWritePermission(StepsRecord::class)
     )
+    private val metricPermissions = setOf(DistanceRecord::class, ActiveCaloriesBurnedRecord::class, ElevationGainedRecord::class, ExerciseSessionRecord::class).flatMap {
+        listOf(HealthPermission.getReadPermission(it), HealthPermission.getWritePermission(it))
+    }.toSet()
     private val request = registerForActivityResult(
         PermissionController.createRequestPermissionResultContract()
     ) { granted ->
-        status.text = if (granted.containsAll(permissions)) "Access granted. Ready to run a scenario."
-        else "Both permissions are required: read and write steps."
+        status.text = if (granted.containsAll(permissions + metricPermissions)) "Access granted. Ready to run a scenario."
+        else "Allow read and write access to the selected activity data."
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,6 +52,7 @@ open class MainActivity : ComponentActivity() {
         }
         label("Step Simulator", 28f)
         label("Lab · synthetic data\n")
+        label("Walking test: 0.70 m and 0.04 active kcal per step; 0 m climb")
         label("Step count")
         steps = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
@@ -63,13 +67,14 @@ open class MainActivity : ComponentActivity() {
         fun button(title: String, action: () -> Unit) = Button(this).also {
             it.text = title; it.setOnClickListener { action() }; layout.addView(it)
         }
-        button("Allow step access") {
-            if (available()) request.launch(permissions)
+        button("Allow activity data access") {
+            if (available()) request.launch(permissions + metricPermissions)
         }
         generate = button("Generate · write and verify") {
             try {
                 submit(Scenario(UUID.randomUUID().toString(), steps.text.toString().toLong(),
-                    Instant.parse(start.text.toString().trim()), Instant.parse(end.text.toString().trim())))
+                    Instant.parse(start.text.toString().trim()), Instant.parse(end.text.toString().trim()),
+                    ActivityMetrics(steps.text.toString().toLong() * 0.70, steps.text.toString().toLong() * 0.04, 0.0, Instant.parse(start.text.toString().trim()))))
             } catch (e: Exception) { status.text = "Input error: ${e.message}" }
         }
         button("Open Health Connect") {
@@ -104,8 +109,8 @@ open class MainActivity : ComponentActivity() {
             try {
                 check(available()) { "Health Connect unavailable" }
                 val client = HealthConnectClient.getOrCreate(this@MainActivity)
-                check(client.permissionController.getGrantedPermissions().containsAll(permissions)) {
-                    "Open Step Simulator and allow access to read and write steps"
+                check(client.permissionController.getGrantedPermissions().containsAll(permissions + if (scenario.metrics != null) metricPermissions else emptySet())) {
+                    "Open Step Simulator and allow read/write access to the requested activity types"
                 }
                 val zone = ZoneId.systemDefault().rules
                 val record = StepsRecord(
@@ -118,6 +123,7 @@ open class MainActivity : ComponentActivity() {
                 val read = client.readRecord(StepsRecord::class, id).record
                 val passed = read.count == scenario.count && read.startTime == scenario.start &&
                     read.endTime == scenario.end && read.metadata.dataOrigin.packageName == packageName
+                scenario.metrics?.let { result.put("metrics", it.writeAndVerify(client, scenario, packageName)) }
                 result.put("actual", read.count).put("origin", read.metadata.dataOrigin.packageName)
                     .put("recording_method", read.metadata.recordingMethod)
                     .put("status", if (passed) "PASS" else "FAIL")

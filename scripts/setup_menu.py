@@ -4,7 +4,7 @@ import os, plistlib, shutil, subprocess
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 r=root/'work/daily-steps.nosync';code=r/'code';code.mkdir(parents=True,exist_ok=True)
-for name in ['daily_steps.py','simulate.py','menu_control.py']:
+for name in ['daily_steps.py','simulate.py','menu_control.py','activity_profile.py']:
     shutil.copy2(root/'scripts'/name,code/name)
 if not (r/'config.json').exists():shutil.copy2(root/'scheduler/config.json',r/'config.json')
 app=root/'work/menu-build.nosync/Step Menu.app';contents=app/'Contents';(contents/'MacOS').mkdir(parents=True,exist_ok=True)
